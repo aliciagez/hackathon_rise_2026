@@ -42,7 +42,6 @@ test_pred, prediktion, ki = kör_sarima(train, test)
 # MÄTVÄRDEN
 mae = mean_absolute_error(test, test_pred)
 rmse = np.sqrt(mean_squared_error(test, test_pred))
-mape = np.mean(np.abs((test - test_pred) / test)) * 100
 
 # METRICS
 col1, col2, col3, col4 = st.columns(4)
@@ -104,8 +103,8 @@ st.plotly_chart(fig, use_container_width=True)
 st.subheader("📊 Modellens prestanda")
 st.table(
     {
-        "Mätvärde": ["MAE", "RMSE", "MAPE"],
-        "Värde": [f"{mae:.2f}°C", f"{rmse:.2f}°C", f"{mape:.1f}%"],
-        "Förklaring": ["Snittfel i grader", "Straffar stora fel mer", "Fel i procent"],
+        "Mätvärde": ["MAE", "RMSE"],
+        "Värde": [f"{mae:.2f}°C", f"{rmse:.2f}°C"],
+        "Förklaring": ["Snittfel i grader", "Straffar stora fel mer"],
     }
 )
