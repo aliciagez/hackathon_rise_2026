@@ -9,25 +9,23 @@ st.title("🌡️ SMHI Temperaturanalys & Prediktion")
 
 st.sidebar.header("Data")
 
-uploaded_files = st.sidebar.file_uploader(
-    "Ladda upp CSV-filer", 
-     type=["csv"],
-     accept_multiple_files=True)
+st.sidebar.subheader("Välj datum för prediktion")
 
+valt_år = st.sidebar.selectbox("År", options=[2027, 2028], index=0)
 
+valt_månad = st.sidebar.selectbox(
+    "Månad", options=list(range(1, 13)), format_func=lambda m: [
+        "Jan","Feb","Mar","Apr","Maj","Jun",
+        "Jul","Aug","Sep","Okt","Nov","Dec"
+    ][m - 1]
+)
 
-# FAKE DATA — byt ut mot riktig data sen
-def generera_testdata():
-    datum = pd.date_range(start="1996-01-01", end="2026-01-01", freq="ME")
-    säsong = np.sin(np.arange(len(datum)) * 2 * np.pi / 12) * 10
-    trend = np.linspace(0, 1.5, len(datum))
-    brus = np.random.normal(0, 1, len(datum))
-    temp = säsong + trend + brus + 8
-    return pd.Series(temp, index=datum, name="temperatur")
-
-
-månadsdata = generera_testdata()
-
+# RIKTIG DATA
+df = pd.read_csv("clean_data/cleand_smhi.csv")
+df["datum"] = pd.to_datetime(df["Representativt dygn"])
+df = df.set_index("datum")
+df["temperatur"] = df["Lufttemperatur"]
+månadsdata = df["temperatur"].resample("ME").mean()
 
 @st.cache_data
 def kör_sarima(data):
@@ -36,17 +34,26 @@ def kör_sarima(data):
     forecast = result.get_forecast(steps=48)
     return forecast.predicted_mean, forecast.conf_int()
 
+valt_datum = f"{valt_år}-{valt_månad:02d}"
 
 st.info("Tränar SARIMA-modellen... detta tar ~30 sekunder")
 prediktion, ki = kör_sarima(månadsdata)
 
-# Metrics FÖRST
+if valt_datum in prediktion.index.strftime("%Y-%m"):
+    mask = prediktion.index.strftime("%Y-%m") == valt_datum
+    temp = prediktion[mask].values[0]
+    st.sidebar.metric(
+        label=f"Prediktion {valt_datum}",
+        value=f"{temp:.1f}°C"
+    )
+else:
+    st.sidebar.warning("Inget prediktionsvärde för det datumet.")
+
 col1, col2, col3 = st.columns(3)
 col1.metric("Prediktion 2027", f"{prediktion['2027'].mean():.1f}°C")
 col2.metric("Prediktion 2028", f"{prediktion['2028'].mean():.1f}°C")
 col3.metric("Felmarginal", f"±{(ki.iloc[:, 1] - ki.iloc[:, 0]).mean() / 2:.1f}°C")
 
-# Diagram EFTER
 fig = go.Figure()
 
 fig.add_trace(
