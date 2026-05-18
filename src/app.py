@@ -48,7 +48,8 @@ valt_dag = st.sidebar.selectbox(
 df = pd.read_csv("clean_data/cleand_smhi.csv")
 df["datum"] = pd.to_datetime(df["Representativt dygn"])
 df = df.set_index("datum")
-df["temperatur"] = df["Lufttemperatur"]
+
+df["temperatur"] = (df["Lufttemperatur"] + df["Lufttemperatur.1"]) / 2
 månadsdata = df["temperatur"].resample("ME").mean()
 
 # TRAIN/TEST SPLIT — 80% träning, 20% test
@@ -117,12 +118,12 @@ else:
 mae = mean_absolute_error(test, test_pred)
 rmse = np.sqrt(mean_squared_error(test, test_pred))
 
-# METRICS
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Prediktion 2027", f"{prediktion['2027'].mean():.1f}°C")
-col2.metric("Prediktion 2028", f"{prediktion['2028'].mean():.1f}°C")
-col3.metric("Felmarginal", f"±{(ki.iloc[:, 1] - ki.iloc[:, 0]).mean() / 2:.1f}°C")
-col4.metric("MAE", f"{mae:.2f}°C")
+# # METRICS
+# col1, col2, col3, col4 = st.columns(4)
+# col1.metric("Prediktion 2027", f"{prediktion['2027'].mean():.1f}°C")
+# col2.metric("Prediktion 2028", f"{prediktion['2028'].mean():.1f}°C")
+# col3.metric("Felmarginal", f"±{(ki.iloc[:, 1] - ki.iloc[:, 0]).mean() / 2:.1f}°C")
+# col4.metric("MAE", f"{mae:.2f}°C")
 
 # MÅNADSDIAGRAM
 fig = go.Figure()
