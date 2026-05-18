@@ -50,7 +50,7 @@ def kör_sarima(train, test):
 
 valt_datum = f"{valt_år}-{valt_månad:02d}"
 
-st.info("Tränar SARIMA-modellen... detta tar ~30 sekunder")
+
 test_pred, prediktion, ki = kör_sarima(train, test)
 
 if valt_datum in prediktion.index.strftime("%Y-%m"):
