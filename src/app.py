@@ -7,18 +7,12 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 st.set_page_config(page_title="SMHI Temperaturanalys", layout="wide")
 st.title("🌡️ SMHI Temperaturanalys & Prediktion")
 
-
-# FAKE DATA — byt ut mot riktig data sen
-def generera_testdata():
-    datum = pd.date_range(start="1996-01-01", end="2026-01-01", freq="ME")
-    säsong = np.sin(np.arange(len(datum)) * 2 * np.pi / 12) * 10
-    trend = np.linspace(0, 1.5, len(datum))
-    brus = np.random.normal(0, 1, len(datum))
-    temp = säsong + trend + brus + 8
-    return pd.Series(temp, index=datum, name="temperatur")
-
-
-månadsdata = generera_testdata()
+# RIKTIG DATA
+df = pd.read_csv("clean_data/cleand_smhi.csv")
+df["datum"] = pd.to_datetime(df["Representativt dygn"])
+df = df.set_index("datum")
+df["temperatur"] = df["Lufttemperatur"]
+månadsdata = df["temperatur"].resample("ME").mean()
 
 
 @st.cache_data
@@ -32,13 +26,11 @@ def kör_sarima(data):
 st.info("Tränar SARIMA-modellen... detta tar ~30 sekunder")
 prediktion, ki = kör_sarima(månadsdata)
 
-# Metrics FÖRST
 col1, col2, col3 = st.columns(3)
 col1.metric("Prediktion 2027", f"{prediktion['2027'].mean():.1f}°C")
 col2.metric("Prediktion 2028", f"{prediktion['2028'].mean():.1f}°C")
 col3.metric("Felmarginal", f"±{(ki.iloc[:, 1] - ki.iloc[:, 0]).mean() / 2:.1f}°C")
 
-# Diagram EFTER
 fig = go.Figure()
 
 fig.add_trace(
