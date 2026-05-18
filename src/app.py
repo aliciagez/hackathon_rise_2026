@@ -8,6 +8,19 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 st.set_page_config(page_title="SMHI Temperaturanalys", layout="wide")
 st.title("🌡️ SMHI Temperaturanalys & Prediktion")
 
+st.sidebar.header("Data")
+
+st.sidebar.subheader("Välj datum för prediktion")
+
+valt_år = st.sidebar.selectbox("År", options=[2027, 2028], index=0)
+
+valt_månad = st.sidebar.selectbox(
+    "Månad", options=list(range(1, 13)), format_func=lambda m: [
+        "Jan","Feb","Mar","Apr","Maj","Jun",
+        "Jul","Aug","Sep","Okt","Nov","Dec"
+    ][m - 1]
+)
+
 # RIKTIG DATA
 df = pd.read_csv("clean_data/cleand_smhi.csv")
 df["datum"] = pd.to_datetime(df["Representativt dygn"])
@@ -35,9 +48,21 @@ def kör_sarima(train, test):
 
     return test_medel, prediktion, ki
 
+valt_datum = f"{valt_år}-{valt_månad:02d}"
 
 st.info("Tränar SARIMA-modellen... detta tar ~30 sekunder")
 test_pred, prediktion, ki = kör_sarima(train, test)
+
+if valt_datum in prediktion.index.strftime("%Y-%m"):
+    mask = prediktion.index.strftime("%Y-%m") == valt_datum
+    temp = prediktion[mask].values[0]
+    st.sidebar.metric(
+        label=f"Prediktion {valt_datum}",
+        value=f"{temp:.1f}°C"
+    )
+else:
+    st.sidebar.warning("Inget prediktionsvärde för det datumet.")
+
 
 # MÄTVÄRDEN
 mae = mean_absolute_error(test, test_pred)
