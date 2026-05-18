@@ -7,6 +7,14 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 st.set_page_config(page_title="SMHI Temperaturanalys", layout="wide")
 st.title("🌡️ SMHI Temperaturanalys & Prediktion")
 
+st.sidebar.header("Data")
+
+uploaded_files = st.sidebar.file_uploader(
+    "Ladda upp CSV-filer", 
+     type=["csv"],
+     accept_multiple_files=True)
+
+
 
 # FAKE DATA — byt ut mot riktig data sen
 def generera_testdata():
