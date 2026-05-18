@@ -4,6 +4,8 @@ import numpy as np
 import plotly.graph_objects as go
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+import calendar
+from datetime import date
 
 st.set_page_config(page_title="SMHI Temperaturanalys", layout="wide")
 st.title("🌡️ SMHI Temperaturanalys & Prediktion")
@@ -11,7 +13,12 @@ st.title("🌡️ SMHI Temperaturanalys & Prediktion")
 st.sidebar.header("Data")
 st.sidebar.subheader("Välj datum för prediktion")
 
-valt_år = st.sidebar.selectbox("År", options=[2027, 2028], index=0)
+idag = date.today()
+valt_år = st.sidebar.selectbox(
+    "År",
+    options=list(range(idag.year, idag.year + 5)),
+    index=0
+)
 valt_månad = st.sidebar.selectbox(
     "Månad",
     options=list(range(1, 13)),
@@ -30,6 +37,12 @@ valt_månad = st.sidebar.selectbox(
         "Dec",
     ][m - 1],
 )
+dagar_i_månad = calendar.monthrange(valt_år, valt_månad)[1]
+valt_dag = st.sidebar.selectbox(
+    "Dag",
+    options=list(range(1, dagar_i_månad + 1))
+)
+
 
 # RIKTIG DATA
 df = pd.read_csv("clean_data/cleand_smhi.csv")
@@ -75,13 +88,30 @@ valt_datum = f"{valt_år}-{valt_månad:02d}"
 
 
 test_pred, prediktion, ki = kör_sarima(train, test)
+dagspred = månads_till_dagar(prediktion, df)
 
 if valt_datum in prediktion.index.strftime("%Y-%m"):
     mask = prediktion.index.strftime("%Y-%m") == valt_datum
-    temp = prediktion[mask].values[0]
-    st.sidebar.metric(label=f"Prediktion {valt_datum}", value=f"{temp:.1f}°C")
+    temp_månad = prediktion[mask].values[0]
+    lower = ki.iloc[:, 0][mask].values[0]
+    upper = ki.iloc[:, 1][mask].values[0]
+
+    st.sidebar.metric("Månadssnitt", f"{temp_månad:.1f}°C")
+    st.sidebar.caption(f"Felmarginal: {lower:.1f}°C – {upper:.1f}°C")
+
+    valt_ts = pd.Timestamp(f"{valt_år}-{valt_månad:02d}-{valt_dag:02d}")
+    if valt_ts in dagspred.index:
+        temp_dag = dagspred.loc[valt_ts]
+        daglig_std = df["temperatur"].groupby(df.index.month).std()
+        std = daglig_std[valt_månad]
+        månads_osäkerhet = (upper - lower) / 2
+        lower_dag = temp_dag - månads_osäkerhet - std
+        upper_dag = temp_dag + månads_osäkerhet + std
+        st.sidebar.metric(f"Dag {valt_dag}", f"{temp_dag:.1f}°C")
+        st.sidebar.caption(f"Felmarginal: {lower_dag:.1f}°C – {upper_dag:.1f}°C")
 else:
     st.sidebar.warning("Inget prediktionsvärde för det datumet.")
+
 
 # MÄTVÄRDEN
 mae = mean_absolute_error(test, test_pred)
@@ -145,7 +175,6 @@ st.plotly_chart(fig, use_container_width=True)
 
 # DAGSPREDIKTION
 st.subheader("📅 Dagsprediktion")
-dagspred = månads_till_dagar(prediktion, df)
 
 fig2 = go.Figure()
 fig2.add_trace(
