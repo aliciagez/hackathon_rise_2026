@@ -9,16 +9,26 @@ st.set_page_config(page_title="SMHI Temperaturanalys", layout="wide")
 st.title("🌡️ SMHI Temperaturanalys & Prediktion")
 
 st.sidebar.header("Data")
-
 st.sidebar.subheader("Välj datum för prediktion")
 
 valt_år = st.sidebar.selectbox("År", options=[2027, 2028], index=0)
-
 valt_månad = st.sidebar.selectbox(
-    "Månad", options=list(range(1, 13)), format_func=lambda m: [
-        "Jan","Feb","Mar","Apr","Maj","Jun",
-        "Jul","Aug","Sep","Okt","Nov","Dec"
-    ][m - 1]
+    "Månad",
+    options=list(range(1, 13)),
+    format_func=lambda m: [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "Maj",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Okt",
+        "Nov",
+        "Dec",
+    ][m - 1],
 )
 
 # RIKTIG DATA
@@ -38,15 +48,28 @@ test = månadsdata[split:]
 def kör_sarima(train, test):
     model = SARIMAX(train, order=(1, 1, 1), seasonal_order=(1, 1, 1, 12))
     result = model.fit(disp=False)
-
     test_pred = result.get_forecast(steps=len(test))
     test_medel = test_pred.predicted_mean
-
     forecast = result.get_forecast(steps=len(test) + 48)
     prediktion = forecast.predicted_mean.iloc[len(test) :]
     ki = forecast.conf_int().iloc[len(test) :]
-
     return test_medel, prediktion, ki
+
+
+def månads_till_dagar(prediktion, df):
+    daglig_std = df["temperatur"].groupby(df.index.month).std()
+    dagspred = []
+    dagsdatum = []
+    for datum, medel in prediktion.items():
+        std = daglig_std[datum.month]
+        antal_dagar = datum.days_in_month
+        dagar = np.random.normal(loc=medel, scale=std, size=antal_dagar)
+        start = datum.replace(day=1)
+        datum_lista = pd.date_range(start, periods=antal_dagar, freq="D")
+        dagspred.extend(dagar)
+        dagsdatum.extend(datum_lista)
+    return pd.Series(dagspred, index=dagsdatum)
+
 
 valt_datum = f"{valt_år}-{valt_månad:02d}"
 
@@ -56,13 +79,9 @@ test_pred, prediktion, ki = kör_sarima(train, test)
 if valt_datum in prediktion.index.strftime("%Y-%m"):
     mask = prediktion.index.strftime("%Y-%m") == valt_datum
     temp = prediktion[mask].values[0]
-    st.sidebar.metric(
-        label=f"Prediktion {valt_datum}",
-        value=f"{temp:.1f}°C"
-    )
+    st.sidebar.metric(label=f"Prediktion {valt_datum}", value=f"{temp:.1f}°C")
 else:
     st.sidebar.warning("Inget prediktionsvärde för det datumet.")
-
 
 # MÄTVÄRDEN
 mae = mean_absolute_error(test, test_pred)
@@ -75,7 +94,7 @@ col2.metric("Prediktion 2028", f"{prediktion['2028'].mean():.1f}°C")
 col3.metric("Felmarginal", f"±{(ki.iloc[:, 1] - ki.iloc[:, 0]).mean() / 2:.1f}°C")
 col4.metric("MAE", f"{mae:.2f}°C")
 
-# DIAGRAM
+# MÅNADSDIAGRAM
 fig = go.Figure()
 
 fig.add_trace(
@@ -123,6 +142,29 @@ fig.update_layout(
 )
 
 st.plotly_chart(fig, use_container_width=True)
+
+# DAGSPREDIKTION
+st.subheader("📅 Dagsprediktion")
+dagspred = månads_till_dagar(prediktion, df)
+
+fig2 = go.Figure()
+fig2.add_trace(
+    go.Scatter(
+        x=dagspred.index,
+        y=dagspred,
+        name="Dagsprediktion",
+        line=dict(color="red", width=1),
+    )
+)
+
+fig2.update_layout(
+    title="Daglig temperaturprediktion 2026-2030",
+    xaxis_title="Datum",
+    yaxis_title="Temperatur (°C)",
+    hovermode="x unified",
+)
+
+st.plotly_chart(fig2, use_container_width=True)
 
 # MODELLPRESTANDA TABELL
 st.subheader("📊 Modellens prestanda")
